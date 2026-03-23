@@ -22,12 +22,47 @@ var selected_candy: CandyScript = null
 var is_processing: bool = false
 var cascade_level: int = 0
 
+var _hint_timer: float = 0.0
+var _hint_delay: float = 3.0
+var _hint_candies: Array = []
+var _hint_shown: bool = false
+
 signal board_ready
 signal turn_completed
 signal candies_destroyed(count: int, color: int)
 
 func _ready() -> void:
 	_calculate_offset()
+
+func _process(delta: float) -> void:
+	if filler == null or is_processing or _hint_shown:
+		return
+	_hint_timer += delta
+	if _hint_timer >= _hint_delay:
+		_show_hint()
+
+func _reset_hint_timer() -> void:
+	_hint_timer = 0.0
+	if _hint_shown:
+		_clear_hint()
+
+func _show_hint() -> void:
+	var move = MatchFinder.find_hint_move(filler.grid, grid_width, grid_height, blocked_cells)
+	if move.size() < 2:
+		return
+	_hint_shown = true
+	for pos in move:
+		var candy = filler.get_candy_at(pos)
+		if candy and is_instance_valid(candy):
+			candy.play_hint()
+			_hint_candies.append(candy)
+
+func _clear_hint() -> void:
+	for candy in _hint_candies:
+		if is_instance_valid(candy):
+			candy.stop_hint()
+	_hint_candies.clear()
+	_hint_shown = false
 
 func _calculate_offset() -> void:
 	var board_width = grid_width * cell_size
@@ -89,6 +124,7 @@ func _connect_single_candy(candy: CandyScript) -> void:
 func _on_candy_selected(candy: CandyScript) -> void:
 	if is_processing:
 		return
+	_reset_hint_timer()
 
 	if selected_candy == null:
 		selected_candy = candy
@@ -111,6 +147,7 @@ func _on_candy_selected(candy: CandyScript) -> void:
 func _on_candy_swiped(candy: CandyScript, direction: Vector2i) -> void:
 	if is_processing:
 		return
+	_reset_hint_timer()
 	var target_pos = candy.grid_pos + direction
 	if target_pos.x < 0 or target_pos.x >= grid_width or target_pos.y < 0 or target_pos.y >= grid_height:
 		return
@@ -135,6 +172,7 @@ func _is_candy_locked(pos: Vector2i) -> bool:
 
 func _try_swap(candy_a: CandyScript, candy_b: CandyScript) -> void:
 	is_processing = true
+	_reset_hint_timer()
 	if selected_candy:
 		selected_candy.set_selected(false)
 		selected_candy = null
@@ -278,7 +316,9 @@ func _process_matches(matches: Array[Dictionary]) -> void:
 func _cascade_loop() -> void:
 	var gravity_tweens = filler.apply_gravity()
 	if gravity_tweens.size() > 0:
-		await gravity_tweens[-1].finished
+		for tw in gravity_tweens:
+			if tw.is_running():
+				await tw.finished
 		await get_tree().create_timer(0.05).timeout
 
 	var fill_tweens = filler.fill_empty_cells()
@@ -288,7 +328,9 @@ func _cascade_loop() -> void:
 				var c = filler.get_candy_at(Vector2i(x, y))
 				if c:
 					_connect_single_candy(c)
-		await fill_tweens[-1].finished
+		for tw in fill_tweens:
+			if tw.is_running():
+				await tw.finished
 		await get_tree().create_timer(0.1).timeout
 
 	var new_matches = MatchFinder.find_all_matches(filler.grid, grid_width, grid_height, blocked_cells)
@@ -363,6 +405,7 @@ func _damage_obstacle(pos: Vector2i) -> void:
 
 func _post_turn_check() -> void:
 	GameManager.reset_combo()
+	_reset_hint_timer()
 
 	if GameManager.check_win_condition():
 		GameManager.complete_level()

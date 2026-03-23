@@ -95,12 +95,6 @@ func apply_gravity() -> Array[Tween]:
 func fill_empty_cells() -> Array[Tween]:
 	var tweens: Array[Tween] = []
 	for x in width:
-		var empty_count = 0
-		for y in height:
-			if Vector2i(x, y) in blocked_cells:
-				continue
-			if grid[x][y] == null:
-				empty_count += 1
 		var spawn_y = -1
 		for y in height:
 			if Vector2i(x, y) in blocked_cells:
@@ -108,11 +102,12 @@ func fill_empty_cells() -> Array[Tween]:
 			if grid[x][y] == null:
 				var color = randi() % num_colors
 				var candy = _create_candy(color, Vector2i(x, y))
-				candy.position = grid_to_world(Vector2i(x, spawn_y))
+				var start_y = spawn_y
+				candy.position = grid_to_world(Vector2i(x, start_y))
 				spawn_y -= 1
 				grid[x][y] = candy
 				var target = grid_to_world(Vector2i(x, y))
-				var dist = abs(y - spawn_y)
+				var dist = abs(y - start_y)
 				var tween = candy.animate_to(target, 0.08 * dist + 0.12)
 				tweens.append(tween)
 	return tweens

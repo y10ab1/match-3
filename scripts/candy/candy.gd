@@ -19,6 +19,7 @@ var _selected: bool = false
 var _hover: bool = false
 var _drag_start: Vector2 = Vector2.ZERO
 var _is_dragging: bool = false
+var _scale_tween: Tween = null
 
 func _ready() -> void:
 	queue_redraw()
@@ -37,15 +38,21 @@ func set_candy_color(color_idx: int) -> void:
 	candy_color = color_idx
 	queue_redraw()
 
+func _kill_scale_tween() -> void:
+	if _scale_tween and _scale_tween.is_valid():
+		_scale_tween.kill()
+		_scale_tween = null
+
 func set_selected(selected: bool) -> void:
 	_selected = selected
+	_kill_scale_tween()
 	if _selected:
-		var tween = create_tween().set_loops()
-		tween.tween_property(self, "scale", Vector2(1.15, 1.15), 0.3).set_trans(Tween.TRANS_SINE)
-		tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.3).set_trans(Tween.TRANS_SINE)
+		_scale_tween = create_tween().set_loops()
+		_scale_tween.tween_property(self, "scale", Vector2(1.15, 1.15), 0.3).set_trans(Tween.TRANS_SINE)
+		_scale_tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.3).set_trans(Tween.TRANS_SINE)
 	else:
-		var tween = create_tween()
-		tween.tween_property(self, "scale", Vector2.ONE, 0.15)
+		_scale_tween = create_tween()
+		_scale_tween.tween_property(self, "scale", Vector2.ONE, 0.15)
 	queue_redraw()
 
 func _draw() -> void:
@@ -118,3 +125,14 @@ func animate_spawn(delay: float = 0.0) -> Tween:
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(self, "modulate:a", 1.0, 0.15)
 	return tween
+
+func play_hint() -> void:
+	_kill_scale_tween()
+	_scale_tween = create_tween().set_loops(3)
+	_scale_tween.tween_property(self, "scale", Vector2(1.2, 1.2), 0.25).set_trans(Tween.TRANS_SINE)
+	_scale_tween.tween_property(self, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_SINE)
+	_scale_tween.finished.connect(func(): scale = Vector2.ONE)
+
+func stop_hint() -> void:
+	_kill_scale_tween()
+	scale = Vector2.ONE

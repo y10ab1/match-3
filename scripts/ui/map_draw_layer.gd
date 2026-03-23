@@ -1,6 +1,7 @@
 extends Node2D
 
 var map_parent: Control
+var custom_font: Font = preload("res://resources/fonts/NotoSans-Regular.ttf")
 
 func _ready() -> void:
 	map_parent = get_parent() as Control
@@ -29,7 +30,7 @@ func _draw() -> void:
 		else:
 			draw_circle(pos, map_parent.NODE_RADIUS, Color(0.3, 0.25, 0.4))
 
-		var font = ThemeDB.fallback_font
+		var font = custom_font
 		var font_size = 20
 		var num_text = str(level_id)
 		var text_size = font.get_string_size(num_text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)

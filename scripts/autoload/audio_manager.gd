@@ -230,12 +230,37 @@ func _generate_fanfare() -> AudioStreamWAV:
 	return stream
 
 func _generate_bgm_loop() -> AudioStreamWAV:
-	var melody_notes = [
+	# Extended version of original style: same tone, more melody variety
+	# A-B-A-C structure, each section 16 notes at 0.25s = 4s, total ~16s
+	var section_a = [
 		523.25, 587.33, 659.25, 523.25,
 		659.25, 698.46, 783.99, 0,
 		783.99, 698.46, 659.25, 587.33,
 		523.25, 587.33, 523.25, 0
 	]
+	var section_b = [
+		440.00, 523.25, 587.33, 659.25,
+		587.33, 523.25, 440.00, 0,
+		392.00, 440.00, 523.25, 587.33,
+		523.25, 440.00, 392.00, 0
+	]
+	var section_c = [
+		659.25, 698.46, 783.99, 659.25,
+		587.33, 523.25, 587.33, 0,
+		440.00, 523.25, 659.25, 587.33,
+		523.25, 440.00, 523.25, 0
+	]
+
+	var melody_notes: Array = []
+	for n in section_a:
+		melody_notes.append(n)
+	for n in section_b:
+		melody_notes.append(n)
+	for n in section_a:
+		melody_notes.append(n)
+	for n in section_c:
+		melody_notes.append(n)
+
 	var note_duration = 0.25
 	var total_duration = melody_notes.size() * note_duration
 	var samples = int(sample_rate * total_duration)

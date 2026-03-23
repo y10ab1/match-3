@@ -106,6 +106,9 @@ static func _merge_matches(matches: Array[Dictionary]) -> Array[Dictionary]:
 	return merged
 
 static func has_possible_moves(grid: Array, width: int, height: int, blocked: Array[Vector2i] = []) -> bool:
+	return find_hint_move(grid, width, height, blocked).size() > 0
+
+static func find_hint_move(grid: Array, width: int, height: int, blocked: Array[Vector2i] = []) -> Array[Vector2i]:
 	for y in height:
 		for x in width:
 			if Vector2i(x, y) in blocked or grid[x][y] == null:
@@ -121,8 +124,8 @@ static func has_possible_moves(grid: Array, width: int, height: int, blocked: Ar
 				var found = find_all_matches(grid, width, height, blocked).size() > 0
 				_swap_in_grid(grid, x, y, nx, ny)
 				if found:
-					return true
-	return false
+					return [Vector2i(x, y), Vector2i(nx, ny)]
+	return []
 
 static func _swap_in_grid(grid: Array, x1: int, y1: int, x2: int, y2: int) -> void:
 	var temp = grid[x1][y1]
