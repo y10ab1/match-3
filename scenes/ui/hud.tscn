@@ -20,35 +20,14 @@ layout_mode = 2
 max_value = 5000.0
 show_percentage = false
 
-[node name="Star1" type="Label" parent="TopBar/ScoreBar"]
-layout_mode = 0
-offset_left = 60.0
-offset_top = 2.0
-offset_right = 90.0
-offset_bottom = 22.0
-theme_override_font_sizes/font_size = 16
-text = "★"
-horizontal_alignment = 1
+[node name="Star1" type="Node2D" parent="TopBar/ScoreBar"]
+position = Vector2(75, 12)
 
-[node name="Star2" type="Label" parent="TopBar/ScoreBar"]
-layout_mode = 0
-offset_left = 300.0
-offset_top = 2.0
-offset_right = 330.0
-offset_bottom = 22.0
-theme_override_font_sizes/font_size = 16
-text = "★"
-horizontal_alignment = 1
+[node name="Star2" type="Node2D" parent="TopBar/ScoreBar"]
+position = Vector2(315, 12)
 
-[node name="Star3" type="Label" parent="TopBar/ScoreBar"]
-layout_mode = 0
-offset_left = 600.0
-offset_top = 2.0
-offset_right = 630.0
-offset_bottom = 22.0
-theme_override_font_sizes/font_size = 16
-text = "★"
-horizontal_alignment = 1
+[node name="Star3" type="Node2D" parent="TopBar/ScoreBar"]
+position = Vector2(615, 12)
 
 [node name="ScoreLabel" type="Label" parent="TopBar"]
 layout_mode = 2

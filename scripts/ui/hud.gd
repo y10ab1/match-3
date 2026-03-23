@@ -4,17 +4,21 @@ extends CanvasLayer
 @onready var moves_label: Label = $TopBar/MovesLabel
 @onready var objective_label: Label = $TopBar/ObjectiveLabel
 @onready var score_bar: ProgressBar = $TopBar/ScoreBar
-@onready var star1: Label = $TopBar/ScoreBar/Star1
-@onready var star2: Label = $TopBar/ScoreBar/Star2
-@onready var star3: Label = $TopBar/ScoreBar/Star3
+@onready var star1: Node2D = $TopBar/ScoreBar/Star1
+@onready var star2: Node2D = $TopBar/ScoreBar/Star2
+@onready var star3: Node2D = $TopBar/ScoreBar/Star3
 
 var star_thresholds: Array[int] = []
 var _score_objective_target: int = 0
+var _star_colors: Array[Color] = [Color(0.4, 0.4, 0.4), Color(0.4, 0.4, 0.4), Color(0.4, 0.4, 0.4)]
 
 func _ready() -> void:
 	GameManager.score_changed.connect(_on_score_changed)
 	GameManager.moves_changed.connect(_on_moves_changed)
 	GameManager.objective_updated.connect(_on_objective_updated)
+	star1.draw.connect(func(): _draw_star(star1, 0))
+	star2.draw.connect(func(): _draw_star(star2, 1))
+	star3.draw.connect(func(): _draw_star(star3, 2))
 
 func setup(level_data: Resource) -> void:
 	star_thresholds = level_data.star_thresholds.duplicate()
@@ -78,9 +82,28 @@ func _update_objective_display(objectives: Array) -> void:
 func _update_stars(score: int) -> void:
 	if star_thresholds.size() < 3:
 		return
-	star1.modulate = Color.GOLD if score >= star_thresholds[0] else Color(0.4, 0.4, 0.4)
-	star2.modulate = Color.GOLD if score >= star_thresholds[1] else Color(0.4, 0.4, 0.4)
-	star3.modulate = Color.GOLD if score >= star_thresholds[2] else Color(0.4, 0.4, 0.4)
+	_star_colors[0] = Color.GOLD if score >= star_thresholds[0] else Color(0.4, 0.4, 0.4)
+	_star_colors[1] = Color.GOLD if score >= star_thresholds[1] else Color(0.4, 0.4, 0.4)
+	_star_colors[2] = Color.GOLD if score >= star_thresholds[2] else Color(0.4, 0.4, 0.4)
+	star1.queue_redraw()
+	star2.queue_redraw()
+	star3.queue_redraw()
+
+func _draw_star(node: Node2D, idx: int) -> void:
+	var color = _star_colors[idx]
+	var pts = _star_points(Vector2.ZERO, 10.0, 4.5, 5)
+	node.draw_colored_polygon(pts, color)
+	var pts_inner = _star_points(Vector2.ZERO, 7.0, 3.5, 5)
+	var highlight = lerp(color, Color.WHITE, 0.3)
+	node.draw_colored_polygon(pts_inner, highlight)
+
+static func _star_points(center: Vector2, outer_r: float, inner_r: float, points: int) -> PackedVector2Array:
+	var result = PackedVector2Array()
+	for i in points * 2:
+		var angle = TAU * i / (points * 2) - PI / 2
+		var r = outer_r if i % 2 == 0 else inner_r
+		result.append(center + Vector2(cos(angle), sin(angle)) * r)
+	return result
 
 func _animate_score_pop() -> void:
 	var tween = create_tween()

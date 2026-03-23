@@ -38,8 +38,23 @@ func _draw() -> void:
 		draw_string(font, pos - Vector2(text_size.x / 2.0, -font_size / 3.0), num_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, font_color)
 
 		if stars > 0:
-			var star_text = ""
+			var star_y = pos.y + map_parent.NODE_RADIUS + 14
+			var star_spacing = 14.0
+			var total_width = (3 - 1) * star_spacing
+			var star_start_x = pos.x - total_width / 2.0
 			for s in 3:
-				star_text += "★" if s < stars else "☆"
-			var star_sz = font.get_string_size(star_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 14)
-			draw_string(font, pos + Vector2(-star_sz.x / 2.0, map_parent.NODE_RADIUS + 18), star_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.GOLD)
+				var star_center = Vector2(star_start_x + s * star_spacing, star_y)
+				if s < stars:
+					var pts = _star_points(star_center, 6.0, 2.7, 5)
+					draw_colored_polygon(pts, Color.GOLD)
+				else:
+					var pts = _star_points(star_center, 6.0, 2.7, 5)
+					draw_colored_polygon(pts, Color(0.5, 0.4, 0.2))
+
+static func _star_points(center: Vector2, outer_r: float, inner_r: float, points: int) -> PackedVector2Array:
+	var result = PackedVector2Array()
+	for i in points * 2:
+		var angle = TAU * i / (points * 2) - PI / 2
+		var r = outer_r if i % 2 == 0 else inner_r
+		result.append(center + Vector2(cos(angle), sin(angle)) * r)
+	return result
