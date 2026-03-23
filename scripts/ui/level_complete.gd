@@ -5,7 +5,7 @@ signal retry_pressed
 signal menu_pressed
 
 var _star_count: int = 0
-@onready var _stars_node: Node2D = $Panel/VBox/StarsLabel
+@onready var _stars_node: Control = $Panel/VBox/StarsLabel
 
 func _ready() -> void:
 	$Panel/VBox/NextButton.pressed.connect(func(): AudioManager.play_button_sound(); next_level_pressed.emit())
@@ -20,10 +20,12 @@ func show_result(score: int, stars: int) -> void:
 	_animate_in()
 
 func _draw_stars() -> void:
+	var center_x = _stars_node.size.x / 2.0
+	var center_y = _stars_node.size.y / 2.0
 	var spacing = 50.0
-	var start_x = -spacing
+	var start_x = center_x - spacing
 	for i in 3:
-		var center = Vector2(start_x + i * spacing, 0)
+		var center = Vector2(start_x + i * spacing, center_y)
 		var color = Color.GOLD if i < _star_count else Color(0.4, 0.4, 0.4)
 		var pts = _star_points(center, 18.0, 8.0, 5)
 		_stars_node.draw_colored_polygon(pts, color)

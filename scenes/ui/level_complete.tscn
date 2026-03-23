@@ -48,7 +48,9 @@ theme_override_colors/font_color = Color(1, 0.85, 0.2, 1)
 text = "Level Complete!"
 horizontal_alignment = 1
 
-[node name="StarsLabel" type="Node2D" parent="Panel/VBox"]
+[node name="StarsLabel" type="Control" parent="Panel/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 50)
 
 [node name="ScoreLabel" type="Label" parent="Panel/VBox"]
 layout_mode = 2
