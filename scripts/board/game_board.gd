@@ -2,6 +2,8 @@ extends Node2D
 
 const MatchFinder = preload("res://scripts/board/match_finder.gd")
 const CandyScript = preload("res://scripts/candy/candy.gd")
+const CandyFactory = preload("res://scripts/candy/candy_factory.gd")
+const SpecialCandy = preload("res://scripts/candy/special_candy.gd")
 
 @export var grid_width: int = 9
 @export var grid_height: int = 9
@@ -196,6 +198,14 @@ func _try_swap(candy_a: CandyScript, candy_b: CandyScript) -> void:
 		_handle_color_bomb_swap(candy_a, candy_b)
 		return
 
+	var combo = CandyFactory.get_combo_result(candy_a.candy_type, candy_b.candy_type)
+	if combo["effect"] != "none":
+		GameManager.use_move()
+		cascade_level = 0
+		await _handle_special_combo(candy_a, candy_b, combo["effect"])
+		_post_turn_check()
+		return
+
 	var matches = MatchFinder.find_all_matches(filler.grid, grid_width, grid_height, blocked_cells)
 	if matches.size() == 0:
 		AudioManager.play_swap_back_sound()
@@ -217,7 +227,6 @@ func _try_swap(candy_a: CandyScript, candy_b: CandyScript) -> void:
 func _handle_color_bomb_swap(candy_a: CandyScript, candy_b: CandyScript) -> void:
 	GameManager.use_move()
 	cascade_level = 0
-	var target_color = -1
 	var bomb: CandyScript = null
 	var other: CandyScript = null
 
@@ -228,36 +237,188 @@ func _handle_color_bomb_swap(candy_a: CandyScript, candy_b: CandyScript) -> void
 		bomb = candy_b
 		other = candy_a
 
-	target_color = other.candy_color
+	var target_color = other.candy_color
 	AudioManager.play_special_trigger_sound()
 
-	var to_destroy: Array[Vector2i] = [bomb.grid_pos]
 	if other.candy_type == CandyScript.CandyType.COLOR_BOMB:
+		# COLOR_BOMB + COLOR_BOMB: destroy everything
+		var to_destroy: Array[Vector2i] = []
 		for x in grid_width:
 			for y in grid_height:
 				var c = filler.get_candy_at(Vector2i(x, y))
 				if c != null:
 					to_destroy.append(Vector2i(x, y))
-	else:
+		effect_spawner_node.spawn_firework(filler.grid_to_world(bomb.grid_pos))
+		for pos in to_destroy:
+			var c = filler.get_candy_at(pos)
+			if c:
+				_trigger_obstacle_adjacent(pos)
+				effect_spawner_node.spawn_destroy_effect(filler.grid_to_world(pos), c.candy_color)
+				filler.remove_candy_at(pos)
+				c.animate_destroy()
+				GameManager.add_score(1, true)
+				candies_destroyed.emit(1, c.candy_color)
+
+	elif other.candy_type in [CandyScript.CandyType.STRIPED_H, CandyScript.CandyType.STRIPED_V]:
+		# COLOR_BOMB + STRIPED: all same-color candies become striped, then trigger
+		_destroy_candy_at(bomb.grid_pos, target_color)
+		_destroy_candy_at(other.grid_pos, target_color)
+		var targets: Array[Vector2i] = []
 		for x in grid_width:
 			for y in grid_height:
 				var c = filler.get_candy_at(Vector2i(x, y))
 				if c != null and c.candy_color == target_color:
-					to_destroy.append(Vector2i(x, y))
+					targets.append(Vector2i(x, y))
+		for pos in targets:
+			var c = filler.get_candy_at(pos)
+			if c and not c.is_being_destroyed:
+				var striped_type = [CandyScript.CandyType.STRIPED_H, CandyScript.CandyType.STRIPED_V].pick_random()
+				c.set_candy_type(striped_type)
+				effect_spawner_node.spawn_special_destroy_effect(filler.grid_to_world(pos), target_color)
+		await get_tree().create_timer(0.4).timeout
+		for pos in targets:
+			var c = filler.get_candy_at(pos)
+			if c and not c.is_being_destroyed:
+				_trigger_special_candy(c)
+				_trigger_obstacle_adjacent(pos)
+				effect_spawner_node.spawn_destroy_effect(filler.grid_to_world(pos), c.candy_color)
+				filler.remove_candy_at(pos)
+				c.animate_destroy()
+				GameManager.add_score(1, true)
+				candies_destroyed.emit(1, target_color)
 
-	for pos in to_destroy:
-		var c = filler.get_candy_at(pos)
-		if c:
-			_trigger_obstacle_adjacent(pos)
-			effect_spawner_node.spawn_destroy_effect(filler.grid_to_world(pos), c.candy_color)
-			filler.remove_candy_at(pos)
-			c.animate_destroy()
-			GameManager.add_score(1, true)
-			candies_destroyed.emit(1, target_color)
+	elif other.candy_type == CandyScript.CandyType.WRAPPED:
+		# COLOR_BOMB + WRAPPED: all same-color candies become wrapped, then trigger
+		_destroy_candy_at(bomb.grid_pos, target_color)
+		_destroy_candy_at(other.grid_pos, target_color)
+		var targets: Array[Vector2i] = []
+		for x in grid_width:
+			for y in grid_height:
+				var c = filler.get_candy_at(Vector2i(x, y))
+				if c != null and c.candy_color == target_color:
+					targets.append(Vector2i(x, y))
+		for pos in targets:
+			var c = filler.get_candy_at(pos)
+			if c and not c.is_being_destroyed:
+				c.set_candy_type(CandyScript.CandyType.WRAPPED)
+				effect_spawner_node.spawn_special_destroy_effect(filler.grid_to_world(pos), target_color)
+		await get_tree().create_timer(0.4).timeout
+		for pos in targets:
+			var c = filler.get_candy_at(pos)
+			if c and not c.is_being_destroyed:
+				_trigger_special_candy(c)
+				_trigger_obstacle_adjacent(pos)
+				effect_spawner_node.spawn_destroy_effect(filler.grid_to_world(pos), c.candy_color)
+				filler.remove_candy_at(pos)
+				c.animate_destroy()
+				GameManager.add_score(1, true)
+				candies_destroyed.emit(1, target_color)
+
+	else:
+		# COLOR_BOMB + NORMAL: destroy all of that color
+		_destroy_candy_at(bomb.grid_pos, target_color)
+		for x in grid_width:
+			for y in grid_height:
+				var c = filler.get_candy_at(Vector2i(x, y))
+				if c != null and c.candy_color == target_color:
+					_trigger_obstacle_adjacent(Vector2i(x, y))
+					effect_spawner_node.spawn_destroy_effect(filler.grid_to_world(Vector2i(x, y)), c.candy_color)
+					filler.remove_candy_at(Vector2i(x, y))
+					c.animate_destroy()
+					GameManager.add_score(1, true)
+					candies_destroyed.emit(1, target_color)
 
 	await get_tree().create_timer(0.3).timeout
 	await _cascade_loop()
 	_post_turn_check()
+
+func _destroy_candy_at(pos: Vector2i, color_for_signal: int) -> void:
+	var c = filler.get_candy_at(pos)
+	if c and not c.is_being_destroyed:
+		_trigger_obstacle_adjacent(pos)
+		effect_spawner_node.spawn_destroy_effect(filler.grid_to_world(pos), c.candy_color)
+		filler.remove_candy_at(pos)
+		c.animate_destroy()
+		GameManager.add_score(1, true)
+		candies_destroyed.emit(1, color_for_signal)
+
+func _handle_special_combo(candy_a: CandyScript, candy_b: CandyScript, effect: String) -> void:
+	var pos_a = candy_a.grid_pos
+	var pos_b = candy_b.grid_pos
+	var mid_pos = pos_a
+	AudioManager.play_special_trigger_sound()
+
+	match effect:
+		"double_striped":
+			# Cross elimination: full row + full column
+			effect_spawner_node.spawn_shockwave(filler.grid_to_world(mid_pos))
+			var targets = SpecialCandy.get_cross_targets(mid_pos, grid_width, grid_height)
+			_destroy_candy_at(pos_a, candy_a.candy_color)
+			_destroy_candy_at(pos_b, candy_b.candy_color)
+			for pos in targets:
+				var c = filler.get_candy_at(pos)
+				if c and not c.is_being_destroyed:
+					_trigger_obstacle_adjacent(pos)
+					effect_spawner_node.spawn_destroy_effect(filler.grid_to_world(pos), c.candy_color)
+					filler.remove_candy_at(pos)
+					c.animate_destroy()
+					GameManager.add_score(1, true)
+					candies_destroyed.emit(1, c.candy_color)
+
+		"double_wrapped":
+			# 5×5 big explosion
+			effect_spawner_node.spawn_shockwave(filler.grid_to_world(mid_pos))
+			effect_spawner_node.spawn_firework(filler.grid_to_world(mid_pos))
+			var targets = SpecialCandy.get_big_wrapped_targets(mid_pos, grid_width, grid_height)
+			_destroy_candy_at(pos_a, candy_a.candy_color)
+			_destroy_candy_at(pos_b, candy_b.candy_color)
+			for pos in targets:
+				var c = filler.get_candy_at(pos)
+				if c and not c.is_being_destroyed:
+					_trigger_obstacle_adjacent(pos)
+					effect_spawner_node.spawn_destroy_effect(filler.grid_to_world(pos), c.candy_color)
+					filler.remove_candy_at(pos)
+					c.animate_destroy()
+					GameManager.add_score(1, true)
+					candies_destroyed.emit(1, c.candy_color)
+
+		"wrapped_striped":
+			# Giant cross: 3 rows + 3 columns
+			effect_spawner_node.spawn_shockwave(filler.grid_to_world(mid_pos))
+			effect_spawner_node.spawn_shockwave(filler.grid_to_world(mid_pos))
+			_destroy_candy_at(pos_a, candy_a.candy_color)
+			_destroy_candy_at(pos_b, candy_b.candy_color)
+			for dy in range(-1, 2):
+				for x in grid_width:
+					var row_y = mid_pos.y + dy
+					if row_y < 0 or row_y >= grid_height:
+						continue
+					var pos = Vector2i(x, row_y)
+					var c = filler.get_candy_at(pos)
+					if c and not c.is_being_destroyed:
+						_trigger_obstacle_adjacent(pos)
+						effect_spawner_node.spawn_destroy_effect(filler.grid_to_world(pos), c.candy_color)
+						filler.remove_candy_at(pos)
+						c.animate_destroy()
+						GameManager.add_score(1, true)
+						candies_destroyed.emit(1, c.candy_color)
+			for dx in range(-1, 2):
+				for y in grid_height:
+					var col_x = mid_pos.x + dx
+					if col_x < 0 or col_x >= grid_width:
+						continue
+					var pos = Vector2i(col_x, y)
+					var c = filler.get_candy_at(pos)
+					if c and not c.is_being_destroyed:
+						_trigger_obstacle_adjacent(pos)
+						effect_spawner_node.spawn_destroy_effect(filler.grid_to_world(pos), c.candy_color)
+						filler.remove_candy_at(pos)
+						c.animate_destroy()
+						GameManager.add_score(1, true)
+						candies_destroyed.emit(1, c.candy_color)
+
+	await get_tree().create_timer(0.3).timeout
+	await _cascade_loop()
 
 func _process_matches(matches: Array[Dictionary]) -> void:
 	for match_data in matches:
