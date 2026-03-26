@@ -100,13 +100,31 @@ func play_obstacle_break_sound() -> void:
 func start_bgm() -> void:
 	if music_player.playing:
 		return
-	var stream = _generate_bgm_loop()
+	var stream: AudioStream = null
+	if ResourceLoader.exists("res://resources/audio/SugarcubePuzzles.mp3"):
+		stream = load("res://resources/audio/SugarcubePuzzles.mp3")
+	elif ResourceLoader.exists("res://resources/audio/bgm.mp3"):
+		stream = load("res://resources/audio/bgm.mp3")
+	elif ResourceLoader.exists("res://resources/audio/bgm.ogg"):
+		stream = load("res://resources/audio/bgm.ogg")
+	elif ResourceLoader.exists("res://resources/audio/bgm.wav"):
+		stream = load("res://resources/audio/bgm.wav")
+	if stream == null:
+		stream = _generate_bgm_loop()
 	music_player.stream = stream
 	music_player.volume_db = linear_to_db(music_volume * master_volume)
+	music_player.autoplay = false
 	music_player.play()
+	music_player.finished.connect(_on_bgm_finished, CONNECT_DEFERRED)
 
 func stop_bgm() -> void:
+	if music_player.finished.is_connected(_on_bgm_finished):
+		music_player.finished.disconnect(_on_bgm_finished)
 	music_player.stop()
+
+func _on_bgm_finished() -> void:
+	if music_player.stream != null:
+		music_player.play()
 
 func _generate_tone(freq: float, duration: float, volume: float = 1.0) -> AudioStreamWAV:
 	var samples = int(sample_rate * duration)
